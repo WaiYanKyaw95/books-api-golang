@@ -1,0 +1,9 @@
+# compiled binary
+bookapi
+bookapi.exe
+
+# environment
+.env
+
+# database
+*.db
