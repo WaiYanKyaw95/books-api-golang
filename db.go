@@ -26,9 +26,9 @@ func initDB() *sql.DB {
 	_, err = db.Exec(`CREATE TABLE IF NOT EXISTS books (
 		id				SERIAL PRIMARY KEY,
 		title 			TEXT NOT NULL,
-		authors 		TEXT[],
+		author 			TEXT[],
 		year			INTEGER,
-		genres			TEXT[],
+		subject			TEXT[],
 		description		TEXT,
 		open_library_id TEXT UNIQUE
 	)`)
