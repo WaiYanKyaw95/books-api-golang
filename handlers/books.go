@@ -2,9 +2,11 @@ package handlers
 
 import (
 	"database/sql"
+	"fmt"
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 )
@@ -24,6 +26,11 @@ func GetBooks(c *gin.Context, db *sql.DB) {
 	page := c.DefaultQuery("page", "1")
 	limit := c.DefaultQuery("limit", "10")
 
+	// query parameters
+	author := c.Query("author")
+	year := c.Query("year")
+	subject := c.Query("subject")
+
 	// c.Query() returns a string; thus need to convert
 	pageInt, err := strconv.Atoi(page)
 	if err != nil {
@@ -40,12 +47,47 @@ func GetBooks(c *gin.Context, db *sql.DB) {
 	// offset calculation = (page - 1) * limit
 	offset := (pageInt - 1) * limitInt
 
-	// retrieve the records from the database
+	// retrieve the records from the database with a dynamic query
+	// SELECT id, title, author, year, subject FROM books WHERE 1=1
+	// AND "author" = ANY(author)
+	// AND year = yearInt
+	// AND "subject" = ANY(subject)
+	// OFFSET offset LIMIT limitInt
 	var books = []Book{}
-	rows, err := db.Query(`SELECT id, title, author, year, subject FROM books
-		OFFSET $1 LIMIT $2`,
-		offset,
-		limitInt)
+
+	query := "SELECT id, title, author, year, subject FROM books WHERE 1=1"
+	args := []any{}
+	argsCount := 1
+
+	if author != "" {
+		query += fmt.Sprintf(" AND $%d = ANY(author)", argsCount)
+		args = append(args, author)
+		argsCount++
+	}
+
+	var yearInt int
+	if year != "" {
+		yearInt, err = strconv.Atoi(year)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid year"})
+			return
+		}
+		query += fmt.Sprintf(" AND year = $%d", argsCount)
+		args = append(args, yearInt)
+		argsCount++
+	}
+
+	if subject != "" {
+		subject = strings.ToLower(subject)
+		query += fmt.Sprintf(" AND $%d = ANY(subject)", argsCount)
+		args = append(args, subject)
+		argsCount++
+	}
+
+	query += fmt.Sprintf(" OFFSET $%d LIMIT $%d", argsCount, argsCount+1)
+	args = append(args, offset, limitInt)
+
+	rows, err := db.Query(query, args...)
 
 	// database error 500
 	if err != nil {
