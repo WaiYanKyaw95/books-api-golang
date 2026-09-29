@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/lib/pq"
 )
 
 type Book struct {
@@ -30,6 +31,23 @@ func GetBooks(c *gin.Context, db *sql.DB) {
 	author := c.Query("author")
 	year := c.Query("year")
 	subject := c.Query("subject")
+
+	// sorting
+	sort := c.DefaultQuery("sort", "id")    // default sort by id
+	order := c.DefaultQuery("order", "asc") // default ascending
+
+	// validate sort column to allow only known columns
+	allowedSort := map[string]bool{
+		"id": true, "title": true, "year": true,
+	}
+
+	if !allowedSort[sort] {
+		sort = "id" // fallback to safe default
+	}
+
+	if order != "asc" && order != "desc" {
+		order = "asc"
+	}
 
 	// c.Query() returns a string; thus need to convert
 	pageInt, err := strconv.Atoi(page)
@@ -84,6 +102,10 @@ func GetBooks(c *gin.Context, db *sql.DB) {
 		argsCount++
 	}
 
+	// sorting
+	query += fmt.Sprintf(" ORDER BY %s %s", sort, order)
+
+	// offset and limit
 	query += fmt.Sprintf(" OFFSET $%d LIMIT $%d", argsCount, argsCount+1)
 	args = append(args, offset, limitInt)
 
@@ -100,7 +122,8 @@ func GetBooks(c *gin.Context, db *sql.DB) {
 	// scan them into a struct one bye one
 	for rows.Next() {
 		var book Book
-		if err := rows.Scan(&book.ID, &book.Title, &book.Author, &book.Year, &book.Subject); err != nil {
+
+		if err := rows.Scan(&book.ID, &book.Title, pq.Array(&book.Author), &book.Year, pq.Array(&book.Subject)); err != nil {
 			log.Printf("GetBooks: scan failed: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "data parsing error"})
 			return
