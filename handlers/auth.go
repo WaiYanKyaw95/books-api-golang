@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -116,4 +117,29 @@ func LogIn(c *gin.Context, db *sql.DB) {
 	}
 	// respond includes token, username
 	c.JSON(http.StatusOK, gin.H{"username": user.Username, "token": encodedTokenStr})
+}
+
+func LogOut(c *gin.Context, db *sql.DB) {
+	// check if the user is logged in, using authorization token (c.GetHeader)
+	authorization := c.GetHeader("Authorization")
+	if !strings.Contains(authorization, "Bearer ") {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "token unavailable"})
+		return
+	}
+
+	token := strings.TrimPrefix(authorization, "Bearer ")
+
+	result, err := db.Exec(`DELETE FROM sessions WHERE token = $1`, token)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "database error"})
+		return
+	}
+
+	rows, _ := result.RowsAffected()
+	if rows == 0 {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid or expired token"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "logged out successfully"})
 }
