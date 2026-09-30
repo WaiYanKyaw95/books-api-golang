@@ -2,6 +2,7 @@ package main
 
 import (
 	"bookapi/handlers"
+	"bookapi/middleware"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -35,9 +36,32 @@ func main() {
 		handlers.LogIn(c, db)
 	})
 
-	router.POST("/logout", func(c *gin.Context) {
-		handlers.LogOut(c, db)
-	})
+	protected := router.Group("/")
+	protected.Use(middleware.AuthMiddleWare(db))
+
+	{
+		protected.POST("/logout", func(c *gin.Context) {
+			handlers.LogOut(c, db)
+		})
+	}
+
+	admin := router.Group("/")
+	admin.Use(middleware.AuthMiddleWare(db))
+	admin.Use(middleware.AdminMiddleWare())
+
+	{
+		admin.POST("/books", func(c *gin.Context) {
+			// create book handler
+		})
+
+		admin.PUT("/books/:id", func(c *gin.Context) {
+			// update book handler
+		})
+
+		admin.DELETE("/books/:id", func(c *gin.Context) {
+			// delete book handler
+		})
+	}
 
 	router.Run(":8080")
 }
