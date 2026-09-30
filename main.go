@@ -31,5 +31,9 @@ func main() {
 		handlers.Register(c, db)
 	})
 
+	router.POST("/login", func(c *gin.Context) {
+		handlers.LogIn(c, db)
+	})
+
 	router.Run(":8080")
 }

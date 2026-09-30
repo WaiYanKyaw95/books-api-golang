@@ -1,8 +1,11 @@
 package handlers
 
 import (
+	"crypto/rand"
 	"database/sql"
+	"encoding/hex"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -65,4 +68,52 @@ func Register(c *gin.Context, db *sql.DB) {
 	// respond with a user - build yourself; don't retrieve.
 	newUser := User{ID: int(id), Username: input.Username, Role: "user"}
 	c.JSON(http.StatusCreated, newUser)
+}
+
+func LogIn(c *gin.Context, db *sql.DB) {
+	// create a AuthInput variable
+	var input AuthInput
+	var user User
+	// bind json
+	err := c.ShouldBindJSON(&input)
+	// if not, invalid request 400
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return
+	}
+
+	// check if username exists - grab id and role as well for successful cases
+	row := db.QueryRow(`SELECT id, username, password, role FROM users WHERE username = $1`, input.Username)
+	err = row.Scan(&user.ID, &user.Username, &user.Password, &user.Role)
+	// if not, invalid credentials 401
+	if err == sql.ErrNoRows {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid credentials"})
+		return
+		// 500 database error
+	} else if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "database error"})
+		return
+	}
+
+	// check against hash password
+	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(input.Password))
+	// if not, invalid credentials 401
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid credentials"})
+		return
+	}
+
+	// successful login will receive token and username response
+	// create a 32 bytes token and fill it with random bytes
+	tokenBytes := make([]byte, 32)
+	rand.Read(tokenBytes)
+	// change it to a hex and store in the sessions table with user_id
+	encodedTokenStr := hex.EncodeToString(tokenBytes)
+	_, err = db.Exec(`INSERT INTO sessions (user_id, token, created_at) VALUES ($1, $2, $3)`, user.ID, string(encodedTokenStr), time.Now().Format(time.RFC3339))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "database error"})
+		return
+	}
+	// respond includes token, username
+	c.JSON(http.StatusOK, gin.H{"username": user.Username, "token": encodedTokenStr})
 }
