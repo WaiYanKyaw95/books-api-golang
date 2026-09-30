@@ -36,6 +36,27 @@ func initDB() *sql.DB {
 		log.Fatal(err)
 	}
 
+	// indexing
+	_, err = db.Exec(`CREATE INDEX IF NOT EXISTS idx_books_year ON books(year)`)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	_, err = db.Exec(`CREATE INDEX IF NOT EXISTS idx_books_title ON books(title)`)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	_, err = db.Exec(`CREATE INDEX IF NOT EXISTS idx_books_author ON books USING GIN(author)`)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	_, err = db.Exec(`CREATE INDEX IF NOT EXISTS idx_books_subject ON books USING GIN(subject)`)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	// return the db connection
 	return db
 }
