@@ -27,5 +27,9 @@ func main() {
 		handlers.GetBookByID(c, db)
 	})
 
+	router.POST("/register", func(c *gin.Context) {
+		handlers.Register(c, db)
+	})
+
 	router.Run(":8080")
 }
