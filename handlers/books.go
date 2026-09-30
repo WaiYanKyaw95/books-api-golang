@@ -140,3 +140,34 @@ func GetBooks(c *gin.Context, db *sql.DB) {
 	c.JSON(http.StatusOK, books)
 
 }
+
+func GetBookByID(c *gin.Context, db *sql.DB) {
+	var book Book
+
+	// get the param id
+	id := c.Param("id")
+
+	// convert id to int
+	idInt, err := strconv.Atoi(id)
+	// handle invalid id
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		return
+	}
+
+	// retrieve the record
+	row := db.QueryRow(`SELECT id, title, author, year, subject FROM books WHERE id = $1`, idInt)
+	err = row.Scan(&book.ID, &book.Title, &book.Author, &book.Year, &book.Subject)
+
+	// handle no records and 500 database error
+	if err == sql.ErrNoRows {
+		c.JSON(http.StatusNotFound, gin.H{"error": "no book found"})
+		return
+	} else if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "database error"})
+		return
+	}
+
+	// respond with the book
+	c.JSON(http.StatusOK, book)
+}

@@ -23,5 +23,9 @@ func main() {
 		handlers.GetBooks(c, db)
 	})
 
+	router.GET("/books/:id", func(c *gin.Context) {
+		handlers.GetBookByID(c, db)
+	})
+
 	router.Run(":8080")
 }
