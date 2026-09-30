@@ -57,6 +57,28 @@ func initDB() *sql.DB {
 		log.Fatal(err)
 	}
 
+	// users table
+	_, err = db.Exec(`CREATE TABLE IF NOT EXISTS users (
+		id 			SERIAL PRIMARY KEY,
+		username 	TEXT NOT NULL UNIQUE,
+		password 	TEXT NOT NULL,
+		role		TEXT NOT NULL DEFAULT 'user'
+	)`)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// sessions table
+	_, err = db.Exec(`CREATE TABLE IF NOT EXISTS sessions (
+		id			SERIAL PRIMARY KEY,
+		user_id 	INTEGER NOT NULL,
+		token		TEXT NOT NULL UNIQUE,
+		created_at 	TEXT NOT NULL
+	)`)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	// return the db connection
 	return db
 }
