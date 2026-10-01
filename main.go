@@ -57,7 +57,7 @@ func main() {
 		})
 
 		admin.PUT("/books/:id", func(c *gin.Context) {
-			// update book handler
+			handlers.UpdateBook(c, db)
 		})
 
 		admin.DELETE("/books/:id", func(c *gin.Context) {

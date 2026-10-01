@@ -216,3 +216,101 @@ func CreateBooks(c *gin.Context, db *sql.DB) {
 	book.ID = id
 	c.JSON(http.StatusCreated, book)
 }
+
+func UpdateBook(c *gin.Context, db *sql.DB) {
+
+	// get the param id -> id, convert it to int and handle conversion error
+	id := c.Param("id")
+	idInt, err := strconv.Atoi(id)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		return
+	}
+
+	// check if the record with that id exists - through database query
+	var existing Book
+	row := db.QueryRow(`SELECT id, title, author, year, subject FROM books WHERE id = $1`, idInt)
+	err = row.Scan(&existing.ID, &existing.Title, pq.Array(&existing.Author), &existing.Year, pq.Array(&existing.Subject))
+	// if not available, no book with such id
+	if err == sql.ErrNoRows {
+		c.JSON(http.StatusNotFound, gin.H{"error": "no such book"})
+		return
+		// database error 500
+	} else if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "database error"})
+		return
+	}
+
+	// shouldjsonbind book, a Book struct
+	var book Book
+	err = c.ShouldBindJSON(&book)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return
+	}
+
+	// check upfront if all values are there
+	if book.Title == "" && len(book.Author) == 0 && book.Year == 0 && len(book.Subject) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "no field to update"})
+		return
+	}
+
+	// check if year is valid
+	if book.Year != 0 && (book.Year < 1000 || book.Year > time.Now().Year()) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid year"})
+		return
+	}
+
+	// start the dynamic query - title, author, year, subject
+	query := "UPDATE books SET"
+	args := []any{}
+	argsCount := 1
+
+	if book.Title != "" {
+		query += fmt.Sprintf(" title = $%d,", argsCount)
+		args = append(args, book.Title)
+		argsCount++
+	}
+
+	if len(book.Author) > 0 {
+		query += fmt.Sprintf(" author = $%d,", argsCount)
+		args = append(args, pq.Array(book.Author))
+		argsCount++
+	}
+
+	if book.Year != 0 {
+		query += fmt.Sprintf(" year = $%d,", argsCount)
+		args = append(args, book.Year)
+		argsCount++
+	}
+
+	if len(book.Subject) > 0 {
+		query += fmt.Sprintf(" subject = $%d,", argsCount)
+		args = append(args, pq.Array(book.Subject))
+		argsCount++
+	}
+
+	// remove the trailing comma before WHERE clause
+	query = strings.TrimSuffix(query, ",")
+	query += fmt.Sprintf(" WHERE id = $%d", argsCount)
+	args = append(args, idInt)
+
+	// syntax to update -> UPDATE books SET column = value, column = value WHERE column = value;
+	_, err = db.Exec(query, args...)
+	// handle 500 database error
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "database error"})
+		return
+	}
+
+	// query the updated record
+	// respond with 200 updated book
+	var updated Book
+	row = db.QueryRow(`SELECT id, title, author, year, subject FROM books WHERE id = $1`, idInt)
+	err = row.Scan(&updated.ID, &updated.Title, pq.Array(&updated.Author), &updated.Year, pq.Array(&updated.Subject))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "database error"})
+		return
+	}
+	c.JSON(http.StatusOK, updated)
+}
