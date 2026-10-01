@@ -36,6 +36,7 @@ func main() {
 		handlers.LogIn(c, db)
 	})
 
+	// logged in users
 	protected := router.Group("/")
 	protected.Use(middleware.AuthMiddleWare(db))
 
@@ -45,13 +46,14 @@ func main() {
 		})
 	}
 
+	// admin users
 	admin := router.Group("/")
 	admin.Use(middleware.AuthMiddleWare(db))
 	admin.Use(middleware.AdminMiddleWare())
 
 	{
 		admin.POST("/books", func(c *gin.Context) {
-			// create book handler
+			handlers.CreateBooks(c, db)
 		})
 
 		admin.PUT("/books/:id", func(c *gin.Context) {

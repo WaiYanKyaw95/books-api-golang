@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/lib/pq"
@@ -170,4 +171,48 @@ func GetBookByID(c *gin.Context, db *sql.DB) {
 
 	// respond with the book
 	c.JSON(http.StatusOK, book)
+}
+
+func CreateBooks(c *gin.Context, db *sql.DB) {
+	// create a Book struct
+	var book Book
+	// get book info from user
+	err := c.ShouldBindJSON(&book)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "bad request"})
+		return
+	}
+
+	// validate the data before inserting into the database
+	// such as title (required), author (required and at least one) and year (optional, valid year) and subject (optional)
+	if book.Title == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "must include a title"})
+		return
+	}
+
+	if len(book.Author) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "must include at least one author"})
+		return
+	}
+
+	if book.Year != 0 {
+		if book.Year <= 1000 || book.Year > time.Now().Year() {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid year"})
+			return
+		}
+	}
+	// insert into the database
+	var id int
+	err = db.QueryRow(`INSERT INTO books (title, author, year, subject) 
+							VALUES ($1, $2, $3, $4) RETURNING id`,
+		book.Title, pq.Array(book.Author), book.Year, pq.Array(book.Subject)).Scan(&id)
+	// handle 500 database error
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "database error"})
+		return
+	}
+
+	// respond with 201 book added
+	book.ID = id
+	c.JSON(http.StatusCreated, book)
 }
