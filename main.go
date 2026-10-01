@@ -61,7 +61,7 @@ func main() {
 		})
 
 		admin.DELETE("/books/:id", func(c *gin.Context) {
-			// delete book handler
+			handlers.DeleteBook(c, db)
 		})
 	}
 

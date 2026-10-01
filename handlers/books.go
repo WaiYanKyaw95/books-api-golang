@@ -314,3 +314,30 @@ func UpdateBook(c *gin.Context, db *sql.DB) {
 	}
 	c.JSON(http.StatusOK, updated)
 }
+
+func DeleteBook(c *gin.Context, db *sql.DB) {
+	// get the param id -> id, convert it to int and handle errors
+	id := c.Param("id")
+	idInt, err := strconv.Atoi(id)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		return
+	}
+
+	// delete the record
+	result, err := db.Exec(`DELETE FROM books WHERE id = $1`, idInt)
+	// handle 500 database error
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "database error"})
+		return
+	}
+	// if deleted successfully
+	rows, _ := result.RowsAffected()
+	if rows == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "book not found"})
+		return
+	}
+
+	// 200 successfully deleted.
+	c.JSON(http.StatusOK, gin.H{"message": "successfully deleted"})
+}
