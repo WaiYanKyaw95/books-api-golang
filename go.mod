@@ -7,6 +7,7 @@ require (
 	github.com/jackc/pgx/v5 v5.11.0
 	github.com/lib/pq v1.12.3
 	golang.org/x/crypto v0.48.0
+	golang.org/x/time v0.16.0
 )
 
 require (
@@ -41,6 +42,5 @@ require (
 	golang.org/x/sync v0.19.0 // indirect
 	golang.org/x/sys v0.41.0 // indirect
 	golang.org/x/text v0.34.0 // indirect
-	golang.org/x/time v0.16.0 // indirect
 	google.golang.org/protobuf v1.36.10 // indirect
 )
