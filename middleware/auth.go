@@ -2,10 +2,14 @@ package middleware
 
 import (
 	"database/sql"
+	"fmt"
 	"net/http"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"golang.org/x/time/rate"
 )
 
 type User struct {
@@ -13,6 +17,11 @@ type User struct {
 	Username string `json:"username"`
 	Role     string `json:"role"`
 }
+
+var (
+	limiters = map[string]*rate.Limiter{}
+	mu       sync.Mutex
+)
 
 func AuthMiddleWare(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -72,4 +81,31 @@ func AdminMiddleWare() gin.HandlerFunc {
 		// c.Next()
 		c.Next()
 	}
+}
+
+func RateLimitMiddleWare(requestPerMinute int, name string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// get a limiter for the ip and router group name
+		key := fmt.Sprintf("%s:%s", c.ClientIP(), name)
+		limiter := getLimiter(key, requestPerMinute)
+		// if not allow, too many requests
+		if !limiter.Allow() {
+			c.AbortWithStatusJSON(http.StatusTooManyRequests, gin.H{"error": "too many requests"})
+			return
+		}
+		// move to main handler
+		c.Next()
+	}
+}
+
+func getLimiter(key string, requestPerMinute int) *rate.Limiter {
+	// lock the map
+	mu.Lock()
+	// unlock the map after
+	defer mu.Unlock()
+	// create if needed
+	if limiters[key] == nil {
+		limiters[key] = rate.NewLimiter(rate.Every(time.Minute/time.Duration(requestPerMinute)), requestPerMinute)
+	}
+	return limiters[key]
 }

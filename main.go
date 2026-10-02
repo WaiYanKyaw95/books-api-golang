@@ -16,41 +16,51 @@ func main() {
 	// create a default gin router with recovery and logger
 	router := gin.Default()
 
-	router.GET("/ping", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"message": "pong"})
+	router.GET("/", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"message": "welcome"})
 	})
 
-	router.GET("/books", func(c *gin.Context) {
-		handlers.GetBooks(c, db)
-	})
+	// public routes - rate limit 100
+	public := router.Group("/")
+	public.Use(middleware.RateLimitMiddleWare(100, "public"))
+	{
+		public.GET("/books", func(c *gin.Context) {
+			handlers.GetBooks(c, db)
+		})
 
-	router.GET("/books/:id", func(c *gin.Context) {
-		handlers.GetBookByID(c, db)
-	})
+		public.GET("/books/:id", func(c *gin.Context) {
+			handlers.GetBookByID(c, db)
+		})
+	}
 
-	router.POST("/register", func(c *gin.Context) {
-		handlers.Register(c, db)
-	})
+	// auth routes - rate limit 10
+	auth := router.Group("/")
+	auth.Use(middleware.RateLimitMiddleWare(10, "auth"))
+	{
+		auth.POST("/register", func(c *gin.Context) {
+			handlers.Register(c, db)
+		})
 
-	router.POST("/login", func(c *gin.Context) {
-		handlers.LogIn(c, db)
-	})
+		auth.POST("/login", func(c *gin.Context) {
+			handlers.LogIn(c, db)
+		})
+	}
 
-	// logged in users
+	// logged in users - rate limit 10
 	protected := router.Group("/")
 	protected.Use(middleware.AuthMiddleWare(db))
-
+	protected.Use(middleware.RateLimitMiddleWare(10, "protected"))
 	{
 		protected.POST("/logout", func(c *gin.Context) {
 			handlers.LogOut(c, db)
 		})
 	}
 
-	// admin users
+	// admin users - rate limit 30
 	admin := router.Group("/")
 	admin.Use(middleware.AuthMiddleWare(db))
 	admin.Use(middleware.AdminMiddleWare())
-
+	admin.Use(middleware.RateLimitMiddleWare(30, "admin"))
 	{
 		admin.POST("/books", func(c *gin.Context) {
 			handlers.CreateBooks(c, db)
